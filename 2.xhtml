@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Supercar Battle Royale - XHTML</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/z-f3-f1/1@4a1e4d5/style.css" type="text/css" />
+    <style type="text/css">
+        /*<![CDATA[*/
+        body, html {
+            margin: 0; padding: 0; height: 100%; overflow: hidden;
+            background-color: #000;
+            color: #fff;
+            font-family: sans-serif;
+        }
+        #unity-container { width: 100%; height: 100%; position: absolute; }
+        #unity-canvas { width: 100%; height: 100%; background: #231f20; display: block; }
+        #loading-cover {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: url('https://cdn.jsdelivr.net/gh/z-f3-f1/1@4a1e4d5/background.jpg') center / cover;
+            z-index: 10;
+        }
+        #unity-loading-bar { text-align: center; }
+        .spinner {
+            border: 5px solid #f3f3f3; border-top: 5px solid #3498db;
+            border-radius: 50%; width: 50px; height: 50px; 
+            margin: 10px auto;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #unity-progress-bar-empty {
+            width: 200px; height: 20px; background: #444; margin-top: 10px; border: 1px solid #555;
+        }
+        #unity-progress-bar-full {
+            width: 0%; height: 100%; background: #3498db;
+        }
+        /*]]>*/
+    </style>
+</head>
+<body class="dark">
+    <div id="unity-container">
+        <canvas id="unity-canvas"></canvas>
+    </div>
+
+    <div id="loading-cover">
+        <div id="unity-loading-bar">
+            <div class="spinner" id="loading-spinner"></div>
+            <div id="unity-progress-bar-empty" style="display:none;">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+            <p id="loading-text">Loading Assets...</p>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        //<![CDATA[
+        window.SDK_OPTIONS = {
+            gameId: "jp112o3o4hzgrnc7zaewjkrfk282pul8",
+            onEvent: function (a) {
+                switch (a.name) {
+                    case "SDK_GAME_PAUSE":
+                        if (typeof myGameInstance !== 'undefined' && myGameInstance) {
+                            myGameInstance.SendMessage('AudioManager', 'MuteAudio');
+                        }
+                        break;
+                    case "SDK_GAME_START":
+                        if (typeof myGameInstance !== 'undefined' && myGameInstance) {
+                            myGameInstance.SendMessage('AudioManager', 'UnmuteAudio');
+                        }
+                        break;
+                }
+            }
+        };
+
+        (function (d, s, id) {
+            var js, fjs = d.getElementsByTagName(s)[0];
+            if (d.getElementById(id)) return;
+            js = d.createElement(s); js.id = id;
+            js.src = "https://cdn.jsdelivr.net/gh/testamalame/sef@4a1e4d5/sedk.js";
+            fjs.parentNode.insertBefore(js, fjs);
+        }(document, 'script', 'gamemonetize-sdk'));
+
+        const buildUrl = "https://cdn.jsdelivr.net/gh/z-f3-f1/1@4a1e4d5/Build";
+        const loaderUrl = buildUrl + "/yandexBrotli.loader.js";
+        
+        const config = {
+            dataUrl: buildUrl + "/yandexBrotli.data.br",
+            frameworkUrl: buildUrl + "/yandexBrotli.framewor.js",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "Brain massage",
+            productName: "Supercar Battle Royale",
+            productVersion: "0.0.197",
+        };
+
+        const canvas = document.getElementById("unity-canvas");
+        const loadingCover = document.getElementById("loading-cover");
+        const progressBarFull = document.getElementById("unity-progress-bar-full");
+        const progressBarEmpty = document.getElementById("unity-progress-bar-empty");
+        const spinner = document.getElementById("loading-spinner");
+        const loadingText = document.getElementById("loading-text");
+
+        function loadAndMergeFiles(baseUrl, files, callback) {
+            let chunks = [];
+            let loadedCount = 0;
+            files.forEach((file, index) => {
+                fetch(baseUrl + "/" + file)
+                    .then(res => res.arrayBuffer())
+                    .then(data => {
+                        chunks[index] = new Uint8Array(data);
+                        loadedCount++;
+                        if (loadedCount === files.length) {
+                            callback(new Blob(chunks));
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Load failed:", err);
+                        loadingText.innerHTML = "Error loading game data.";
+                    });
+            });
+        }
+
+        const wasmFiles = ["yandexBrotli.wasm.br.part1", "yandexBrotli.wasm.br.part2"];
+
+        loadAndMergeFiles(buildUrl, wasmFiles, function(mergedBlob) {
+            config.codeUrl = URL.createObjectURL(mergedBlob);
+            
+            const script = document.createElement("script");
+            script.type = "text/javascript";
+            script.src = loaderUrl;
+            script.onload = () => {
+                createUnityInstance(canvas, config, (progress) => {
+                    spinner.style.display = "none";
+                    progressBarEmpty.style.display = "block";
+                    progressBarFull.style.width = (100 * progress) + "%";
+                    loadingText.innerHTML = "Initializing: " + Math.round(progress * 100) + "%";
+                }).then((unityInstance) => {
+                    window.myGameInstance = unityInstance;
+                    loadingCover.style.display = "none";
+                }).catch(err => {
+                    console.error(err);
+                    loadingText.innerHTML = "WebGL initialization failed.";
+                });
+            };
+            document.body.appendChild(script);
+        });
+        //]]>
+    </script>
+</body>
+</html>
